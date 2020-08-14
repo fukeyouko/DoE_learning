@@ -1,0 +1,86 @@
+---
+title: "Chapter2 CRD for one factor"
+output: html_notebook
+---
+
+## Example 1.   
+```{r}
+library(daewr)
+# example data set 
+bread
+```
+To generate DoE with randomization, use 'sample'
+
+factor : time 
+level : descrete, ordered
+```{r}
+set.seed(2020)
+f <- factor(rep(c(35,40,45),4))
+fac <- sample(f,12)
+plan <- data.frame(loaf = 1:12, time = fac)
+
+```
+ 
+fit linear model with lm function.
+
+```{r}
+mod0 <- lm(height ~ time, data = bread)
+summary(mod0)
+plot(bread$time,bread$height, type = "p")
+```
+
+contrast : '対比'
+Estimable contrasts  --> for what ??
+```{r}
+library(gmodels)
+fit.contrast(mod0, 'time', c(1,-1,0))
+```
+
+ANOVA 
+```{r}
+mod1 <- aov(height ~ time, data = bread)
+summary(mod1)
+```
+
+F value = mean squares of Treatment / mean squares of Error
+P value is the probability of exceeding the calcuated F value if the null hypothesis is true.
+
+### Verufying Assumptions of LM
+
+  1. constancy of variance of errors
+  2. normality of the errors 
+  
+```{r}
+par(mfrow = c(2,2))
+plot(mod1)
+
+plot(residuals(mod1) ~ loaf,
+     main = "Residuals vs Exp.Unit",
+     font.main = 1,
+     data = bread)
+abline( h = 0, lty = 2)
+```
+
+Residuals vs Factor levels :
+  all factor have similar variability of the residuals ? -> if not, variance of the error is not constant. with only 4 replicats in each cell this is difficult to say.
+in this case, transformation would be effective.
+
+If the spread in the residuals tends to increase proportionally as a function of the cell means,transformation  Y = f(y) can uually become more sensitive analysis.
+Boxcox transformation Y = y^-lambda usually work well.
+appropriate lambda can be calculated with MASS pacakge.
+```{r}
+library(MASS)
+bc <- boxcox(mod0)
+lambda <- bc$x[which.max(bc$y)]
+```
+using lambda, which minimize ssE, transform bread data.
+
+```{r}
+tbread <- transform(bread, theight = height ^ lambda)
+tbread
+mod2 <- aov(theight ~ time, data = tbread)
+summary(mod2)
+par(mfrow = c(2,2))
+plot(mod2)
+```
+
