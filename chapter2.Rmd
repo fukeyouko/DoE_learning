@@ -84,3 +84,81 @@ par(mfrow = c(2,2))
 plot(mod2)
 ```
 
+When the variance of the experimental error is not constant for all levels of the treatment factor, but it is not related to the cell means, a transformation will not be an appropriate way of equalizing or stabilizing the variances.
+分散がFactor level と関係なしにばらつくとき、transformは効果がない。
+--> Use weighted least squares.
+
+```{r}
+bread
+with(bread,  {
+  std <- tapply(height, time, sd)
+  weights <- rep(1/std, each = 4)
+  mod3 <- lm(height ~ time, weights = weights, data = bread)
+  anova(mod3)
+  }
+)
+```
+
+When error distribution in not notmal, an alternative is to use a generalized linear model (GLM)
+エラーがnormalでないとき、一般化線形モデルを使うのもよい。
+
+
+## Example 2 :  LM vs GLM
+GLMはLMに加えてerror distribution とlink functionを使う。
+error distribution (normal in lm) can be poasson, gannma, multinominal distribution
+link function (identity in lm) can be Y = log(y), Y = 1/y , etc.
+
+```{r}
+library(daewr)
+#data set
+head(teach)
+nrow(teach)
+
+library(MASS)
+# orderd logistic or probit regression fucntion : polr
+
+# full model (includes the treatment factor, method)
+modf <- polr(score ~ method, weight = count, data = teach)
+# reduced model (includes only intercept)
+modr <- polr(score ~ 1, weight = count , data = teach)
+
+anova(modf, modr)
+```
+
+polr fuction uses logistic link function and multinominal distribution by default.
+P = 0.008 for the likelihood ratio chi-square statistic means there is a significant difference of 'method'
+
+
+### Determining reprecation number 
+Define significance level alpha (0.05 would be suitable), and 'practical significance = Delta 効果量'.
+'Power' = 1 -beta (probability of type 2 error = False Negative!  ) between 80% and 90% is usually sufficient for most experimental study
+
+Example:
+realistic number of replicates = 2~6 
+Delta = 3
+sigma (experimental error) = sqrt = 2.1
+
+```{r}
+bread
+alpha <-rep(0.05, 6)
+Fpower1(alpha, nlev = 3, nreps = 2:7,  Delta = 3, sigma = sqrt(2.1))
+```
+
+With rep = 5 there would be a 73% chance of detecting a difference in cell means as large as 3 (Delta).
+
+
+## Example 3 : after F-test
+
+```{r}
+daewr::sugarbeet
+
+mod4_lm <- lm(yield ~ treat, data = sugarbeet)
+summary(mod4_lm)
+
+mod4 <- aov(yield ~ treat, data = sugarbeet)
+summary(mod4)
+```
+
+
+
+

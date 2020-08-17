@@ -1,0 +1,38 @@
+---
+title: "Chapter3 Factorial designs"
+output: html_notebook
+---
+
+p.55
+Creating a two-factor factorial plan in R
+
+## Example 1. DoE
+2 factors design with helicopter body width and wing length 3 levels for each. 
+
+```{r}
+D <- expand.grid(BW = c(3.25,3.75,4.25), WL = c(4,5,6))
+D
+# 2 replication
+D <- rbind(D,D)
+set.seed(2020)
+D <- D[order(sample(1:18)),]
+CopterDes <- D[c('BW',"WL")]
+CopterDes
+```
+
+## Example 2. data analysis of two factor design
+factor : Ethanol additions 0.1 ~ 0.3
+        air/fuel raio 14,15,16
+output : CO emmision
+
+```{r}
+COdata
+mod1 <- aov(CO ~ Eth * Ratio, data = COdata)
+summary(mod1)
+```
+just for comparison,,, to know difference aov vs lm
+```{r}
+mod1_lm <- lm(CO ~ Eth * Ratio, data = COdata)
+summary(mod1_lm)
+```
+
