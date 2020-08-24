@@ -4,12 +4,13 @@ output: html_notebook
 ---
 
 p.55
-Creating a two-factor factorial plan in R
+# two-factor factorial
 
 ## Example 1. DoE
 2 factors design with helicopter body width and wing length 3 levels for each. 
 
 ```{r}
+
 D <- expand.grid(BW = c(3.25,3.75,4.25), WL = c(4,5,6))
 D
 # 2 replication
@@ -26,6 +27,7 @@ factor : Ethanol additions 0.1 ~ 0.3
 output : CO emmision
 
 ```{r}
+library(daewr)
 COdata
 mod1 <- aov(CO ~ Eth * Ratio, data = COdata)
 summary(mod1)
@@ -35,4 +37,211 @@ just for comparison,,, to know difference aov vs lm
 mod1_lm <- lm(CO ~ Eth * Ratio, data = COdata)
 summary(mod1_lm)
 ```
+
+```{r}
+model.tables(mod1, type = 'means', se = T)
+```
+model.table function produces the summary. 
+'Grand mean' is the 'estimate' of the overall mean u-hat (＝ただの全部のCOの平均)
+THe next tow sections show the marginal means (周辺平均値＝他の変巣の影響を取り除いた平均値) for each factoer along with the standard deviation of the values averaged in each mean.（＝各レベルごとの平均値）
+←これいるか？
+
+interaction plot with default function to see how the effect of one factor changes depending upon the level of the other.
+
+
+```{r}
+
+with(COdata,{
+  interaction.plot(Eth, Ratio, CO, 
+  type = 'b',
+  pch = c(18,24,22), leg.bty = "o",
+  main = "Interaction Plot of Ethanol and air/fuel ratio")
+})
+
+```
+## Example 1.2 : Determining the number of replicates
+
+one of two possible methods can be followed.
+1. detecting differences among the cell means.
+2. detecting a practical size  difference in the marginal means for the factors in the experiment ???
+
+From pilot tests, the standard deviation of experimental error can be estimated as s = 0.32, and if D(delta) = 1.0 is considered to be a practical size difference in CELL MEANS, powers can be calculated like below.
+In case 4-by-4 factorial, there are 16cells ; nlevel-= 16
+
+```{r}
+library(daewr)
+power <- Fpower1(0.05, nlev = 16, nreps = 2:8, Delta = 1, sigma = 0.32)
+options(digits = 5)
+power
+```
+
+if D = 1.0 is considerd to be a practical size difference in MARGINAL MEANS for one of the factors, 
+the result will be different, User Fpower2 function
+
+```{r}
+power <- Fpower2(0.05, nlev = , nreps = 2:8, Delta = 1, sigma = 0.32)
+options(digits = 5)
+power
+```
+
+どう解釈すべきか？
+
+
+## Example 2.2 : Analysis of lacking data 
+
+If there is an unequal number of replicates per cell, marginal mean would be not unbiased.
+'noncentrality for the F-test will be a quadratic form ' --> ???
+
+
+
+```{r}
+COdatam <- daewr::COdata
+COdatam[18,3] <- NA
+library(car)
+mod2 <- lm(CO ~ Eth*Ratio, data = COdatam,
+           contrasts = list(Eth = contr.sum, Ratio = contr.sum))
+Anova(mod2, type = 'III')
+```
+
+## Example . One replication per cell.
+
+with N=1, ANOVA ssE cannot be calculated and no way t make F-test.
+if the levels of both foactors are quantitative, the sum of squares for the interaction term can be partitioned into orthogonal polynomial single degrees of freedom.　両ファクターが数値であればinteraction の項が直交多項式？にわけられる ？？？
+
+```{r}
+library(daewr)
+Cellmeans <- tapply(COdata$CO,
+                    list(COdata$Eth, COdata$Ratio),
+                    mean)
+dim(Cellmeans) <- NULL
+cells <- data.frame(Eth = factor(rep(c(0.1,0.2,0.3), 3)),
+                    Ratio = factor(rep(c(14,15,16), each=3)),
+                    Cellmeans = Cellmeans)
+modnr <- lm(Cellmeans~ Eth*Ratio, data = cells)
+anova(modnr)
+```
+To get sums of square for the linear * linear portion of interactopm, the factors are converted to ordered factors.
+
+```{r}
+Ethc <- as.ordered(cells$Eth)
+class(Ethc)
+Ratioc <- as.ordered(cells$Ratio)
+```
+ 
+When ordered factors are used, lm uses orthogonal polynomial contrasts... ??
+
+## Example 3. Multiple factors
+
+factor : 3x3x2x2=36 pattern of website
+responce : signup or not 
+
+```{r}
+library(daewr)
+data(web)
+web
+```
+
+the responce is binorminal, and aggregated form, meaning same as no replication case.
+ssE cannot be calculated for F-test.glm function automatically set sigma^2 = 1.0 and type III sums of squares will be asymptotically distributed as chi-squareas...?
+
+```{r}
+modb <- glm(cbind(signup, visitors-signup) ~ A*B*C*D, data = web, family = binomial)
+summray(modb)
+anova(modb, test = 'Chisq')
+```
+
+There is significant on A and D main effect along with ACD interaction.
+When interaction is significant, main effect A and D cannot be interpreted separately.
+to interpret the three way interaction, it is necessary to make a table of proportion signing up in each combination of A,C and D.
+
+```{r}
+prop <- web$signup / web$visitors
+webp <- data.frame(web, prop)
+par(mfrow = c(1,3))
+webp1 <- subset(webp, A == 1)
+interaction.plot(webp1$C, webp1$D, webp1$prop, ylim = c(0.015,0.0275))
+webp2 <- subset(webp, A == 2)
+interaction.plot(webp2$C, webp2$D, webp2$prop, ylim = c(0.015,0.0275))
+webp3 <- subset(webp, A == 3)
+interaction.plot(webp3$C, webp3$D, webp3$prop, ylim = c(0.015,0.0275))
+
+
+```
+結局ひとつづつ見ていくしかない
+
+## Example 4. Two level factorial
+ここでは全組み合わせをやる前提。
+2 levels ^3 factor * 2 replication = 16 runs
+
+contr.FrF2 perform scaling.
+
+```{r}
+library(daewr)
+modv <- lm(y ~ A*B*C, data = volt, 
+           contrasts = list(A = DoE.base::contr.FrF2,
+                            B = DoE.base::contr.FrF2,
+                            C = DoE.base::contr.FrF2))
+summary(modv)
+```
+A and AxC interaction are significant. the effect of A is twice the regression coefficient, meaning, on the avaragem when the A is increased from 22 to 32deg, the coltage measurement will decrease by 16.8125*2.
+
+```{r}
+C_Warmup = volt$C
+with(volt, (interaction.plot(A, C, y, type = "b",
+                             pch = c(24,22), leg.bty = "o",
+                             xlab = "Temperature", ylab = "voltage"))
+     )
+
+```
+
+## Example 5. one replicates per cell
+```{r}
+library(daewr)
+chem
+modf <- lm(y~ A*B*C*D, data = chem)
+summary(modf)
+```
+There is no estimate of ssE and thus no t-tests on the regression coefficients in lm summary.
+The regression coefficients for main effect A and B along AxB inteeraction are the largest effects, but a graph must be used to determin which are significant.
+
+normal plot of the regression coefficients in the object modf
+```{r}
+daewr::fullnormal(coef(modf)[-1], alpha = 0.025)
+```
+ほとんどはライン上にのる。A, B, AxBがはずれていることから、この3つの効果は有意であるといえる（Estimate どおりやん？）　ライン上の点は有意ではなく、このラインの傾きはestimate of the standard error of an effect
+
+
+half-normal plot (normal plotを４５度で折りたたんだのと同じ)
+```{r}
+daewr::LGB(coef(modf)[-1], rpt = F)
+```
+
+おなじこと。でもラインを引くのがより簡単。
+
+interaction があるので主効果だけでは解釈がつかないので図interaction plot をみること
+```{r}
+with(daewr::chem, (
+  interaction.plot(A,B,y, type ='b',
+                   pch = c(18,24),
+                   main = "interaction plot",
+                   xlab = "Excess Reactant A",
+                   ylab = "Percent Conversion")
+))
+```
+
+nonreplicated experiment の結果を表すほかの図
+```{r}
+par(mfrom = c(2,1))
+library(BsMD)
+LenthPlot(modf, main = "Lenth Plot of Effects")
+X <- model.matrix(modf)[,2:16]
+y = chem$y
+Chem.BsProb <- BsProb(X,y,blk = 0, mFac = 15, mInt = 1, p = 0.2, g = 2.49, ng = 1,
+                      nMod = 10)
+plot(Chem.BsProb, main = "Bayes Plot of Effects")
+```
+margin of error 以下のestimate は有意ではない。
+margin of error ??
+
+
 
